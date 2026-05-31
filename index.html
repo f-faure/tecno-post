@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tecno — Procesos Industriales</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0f; color: #e0e0f0; min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.96); backdrop-filter: blur(14px);
+    border-bottom: 1px solid #1e1e2e; padding: 14px 20px 0;
+  }
+  .header-top {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; padding-bottom: 12px;
+  }
+  .header h1 { font-size: 18px; font-weight: 800; color: #38bdf8; white-space: nowrap; }
+  .header-count { font-size: 12px; color: #555; white-space: nowrap; }
+  .search-wrap { flex: 1; min-width: 160px; }
+  .search-input {
+    width: 100%; background: #141420; border: 1px solid #2a2a3e;
+    color: #e0e0f0; padding: 8px 14px; border-radius: 8px;
+    font-size: 13px; outline: none; transition: border-color .2s;
+  }
+  .search-input:focus { border-color: #38bdf8; }
+  .search-input::placeholder { color: #444; }
+  .btn-edit-mode {
+    background: #141420; border: 1px solid #2a2a3e; color: #888;
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .2s; white-space: nowrap; touch-action: manipulation;
+  }
+  .btn-edit-mode:hover { border-color: #fbbf24; color: #fbbf24; }
+  .btn-edit-mode.active { background: #2a1a00; border-color: #fbbf24; color: #fbbf24; }
+
+  /* ── TAG FILTER BAR ── */
+  .tag-bar {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .tag-bar::-webkit-scrollbar { display: none; }
+  .tag-pill {
+    flex-shrink: 0; background: #141420; border: 1px solid #2a2a3e;
+    color: #888; padding: 5px 13px; border-radius: 20px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .tag-pill:hover { border-color: #38bdf8; color: #e0e0f0; }
+  .tag-pill.active { background: #0c3a55; border-color: #38bdf8; color: #38bdf8; font-weight: 700; }
+  .tag-pill.all-pill.active { background: #1a103a; border-color: #818cf8; color: #818cf8; }
+
+  /* ── GRID ── */
+  .main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .results-info { font-size: 12px; color: #555; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: 14px; }
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .btn-edit-mode { padding: 10px 14px; font-size: 13px; }
+    .tag-toggle { padding: 8px 14px; font-size: 12px; }
+    .btn-save-tags, .btn-cancel-tags { padding: 12px; font-size: 13px; }
+    .editor-title-input { font-size: 15px; padding: 10px 12px; }
+    .new-tag-input { font-size: 14px; padding: 8px 12px; }
+    .card-thumb { aspect-ratio: 16/9; }
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: #12121a; border: 1px solid #1e1e2e; border-radius: 14px;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .card:hover { border-color: #38bdf820; box-shadow: 0 4px 24px rgba(56,189,248,.06); }
+  .card.hidden { display: none; }
+  .card.edited { border-color: #fbbf2440; }
+
+  /* TÍTULO MANUAL — máxima jerarquía */
+  .card-title {
+    font-size: 14px; font-weight: 700; color: #e8e8f8; line-height: 1.4;
+    border-left: 3px solid #38bdf8; padding-left: 10px;
+  }
+
+  /* DESCRIPTION — protagonista */
+  .card-desc {
+    font-size: 12.5px; color: #8888a8; line-height: 1.55;
+    display: -webkit-box; -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card-desc.empty { color: #3a3a5a; font-style: italic; font-size: 12px; }
+  .card-desc.auto-only {
+    font-size: 13px; color: #c0c0d8; -webkit-line-clamp: 5;
+  }
+
+  /* SOURCE — secundario */
+  .card-source {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #444;
+  }
+  .ig-icon { width: 11px; height: 11px; opacity: .4; flex-shrink: 0; }
+  .card-source a { color: #555; text-decoration: none; transition: color .15s; }
+  .card-source a:hover { color: #38bdf8; }
+
+  /* TAGS ROW */
+  .card-tags-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .card-tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px;
+    border: 1px solid transparent; cursor: pointer; transition: all .15s; touch-action: manipulation;
+  }
+  .btn-edit-card {
+    margin-left: auto; flex-shrink: 0; background: none;
+    border: 1px dashed #2a2a3e; color: #444;
+    padding: 2px 8px; border-radius: 8px; font-size: 10px; cursor: pointer;
+    transition: all .15s; display: none; touch-action: manipulation;
+  }
+  .edit-mode-on .btn-edit-card { display: block; }
+  .btn-edit-card:hover { border-color: #fbbf24; color: #fbbf24; }
+
+  /* TAG EDITOR */
+  .tag-editor {
+    display: none; flex-direction: column; gap: 10px;
+    background: #0e0e18; border: 1px solid #2a2a3e; border-radius: 10px; padding: 12px;
+  }
+  .tag-editor.open { display: flex; }
+  .tag-editor-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: .05em; }
+  .tag-editor-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-toggle {
+    font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 12px;
+    border: 1px solid #2a2a3e; background: #141420; color: #666;
+    cursor: pointer; transition: all .15s; touch-action: manipulation;
+  }
+  .tag-toggle.on { border-color: transparent; }
+
+  /* TÍTULO MANUAL en editor */
+  .editor-title-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .editor-title-input {
+    width: 100%; background: #12121e; border: 1px solid #38bdf840; color: #e8e8f8;
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    outline: none; transition: border-color .2s; resize: none;
+    font-family: inherit;
+  }
+  .editor-title-input:focus { border-color: #38bdf8; }
+  .editor-title-input::placeholder { color: #444; font-weight: 400; }
+
+  /* NEW CATEGORY INPUT */
+  .new-tag-row { display: flex; gap: 6px; }
+  .new-tag-input {
+    flex: 1; background: #141420; border: 1px solid #2a2a3e; color: #e0e0f0;
+    padding: 6px 10px; border-radius: 8px; font-size: 12px; outline: none;
+    transition: border-color .2s;
+  }
+  .new-tag-input:focus { border-color: #38bdf8; }
+  .new-tag-input::placeholder { color: #444; }
+  .btn-add-tag {
+    background: #141420; border: 1px solid #2a2a3e; color: #888;
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    transition: all .15s; white-space: nowrap; touch-action: manipulation;
+  }
+  .btn-add-tag:hover { border-color: #38bdf8; color: #38bdf8; }
+
+  .tag-editor-actions { display: flex; gap: 8px; }
+  .btn-save-tags {
+    flex: 1; background: #0c3a55; border: 1px solid #38bdf8; color: #38bdf8;
+    padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+  }
+  .btn-save-tags:hover { background: #122a42; }
+  .btn-cancel-tags {
+    background: #141420; border: 1px solid #2a2a3e; color: #666;
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; touch-action: manipulation;
+  }
+
+  /* POST LINK */
+  .btn-post {
+    display: block; background: #0c1a2a; border: 1px solid #1e3a55;
+    color: #38bdf8; padding: 8px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; text-decoration: none;
+    text-align: center; transition: all .15s; touch-action: manipulation;
+    letter-spacing: .01em;
+  }
+  .btn-post:hover { background: #122a42; border-color: #38bdf8; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 20px; right: 16px; left: 16px;
+    background: #0c3a55; color: #38bdf8;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    transform: translateY(100px); opacity: 0;
+    transition: all .3s ease; z-index: 200; text-align: center;
+  }
+  @media (min-width: 600px) { .toast { left: auto; max-width: 320px; } }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  .no-results {
+    grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #444; font-size: 14px;
+  }
+
+  /* THUMBNAIL */
+  .card-thumb {
+    width: 100%; aspect-ratio: 1/1; object-fit: cover;
+    border-radius: 8px; display: block;
+    background: #1a1a2a;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>⚙️ Tecno</h1>
+    <span class="header-count" id="headerCount"></span>
+    <div class="search-wrap">
+      <input class="search-input" id="searchInput"
+        placeholder="Buscar proceso, descripción..."
+        oninput="applyFilters()" autocomplete="off" autocorrect="off">
+    </div>
+    <button class="btn-edit-mode" id="btnEditMode" onclick="toggleEditMode()">✏️ Editar tags</button>
+    <button class="btn-edit-mode" id="btnExport" onclick="exportData()">⬇️ Exportar</button>
+  </div>
+  <div class="tag-bar" id="tagBar"></div>
+</div>
+
+<div class="main">
+  <div class="results-info" id="resultsInfo"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LS_KEY      = 'tecno_tags_custom';
+const LS_CATS_KEY = 'tecno_custom_categories';
+const LS_TITLES_KEY = 'tecno_custom_titles';
+const POSTS = [{"url": "https://www.instagram.com/reel/DYCcY7lRGN1/", "descripcion": "A 3 Estados hoje dispõe mais de 3.000 curvaturas (anatomias) para atender a necessidade de seus projetos, caso nenhuma destas lhe atender desenvolvemos o seu projeto!\n#design #designers", "titulo": "", "owner_name": "Joao Henrique Zimmermann(Cuco)", "username": "joaohenrique_zimmermann", "tags": ["Madera / fibras naturales", "multilaminado"], "thumbnail": "thumbnails/DYCcY7lRGN1.jpg"}, {"url": "https://www.instagram.com/reel/DX6Xh35AkzL/", "descripcion": "🔥acrylic bending dome#dome #furnituredesign #homedesign #bending #decorations", "titulo": "", "owner_name": "Tina", "username": "furniture0925", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DX6Xh35AkzL.jpg"}, {"url": "https://www.instagram.com/reel/DVp7bgLEc9Z/", "descripcion": "I’m the factory of the factory body kit.#bodykitplastik", "titulo": "Termoformado de plásticos para autos", "owner_name": "Lin Zegui Mike", "username": "linzegui", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DVp7bgLEc9Z.jpg"}, {"url": "https://www.instagram.com/reel/DXtafW9tl8j/", "descripcion": "Sünger İmalatımızda Bulunmaktadır Detaylı Bilgi İçin\n📞 0547 546 1616\n81 İle Gönderim Yapılmaktadır. \n#berberkoltuğu #kuaför #berber #kuaförkoltukları #sünger", "titulo": "", "owner_name": "Eko Kuaför Koltukları", "username": "ekokuaforkoltuklarii", "tags": ["Moldeo por inyección", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DXtafW9tl8j.jpg"}, {"url": "https://www.instagram.com/reel/DVwSNB3jK5_/", "descripcion": "SWI Aequus - The best carbon fibre unishell monocoque road bicycle frame in the world @swicycling \n\nWe were fortunate to witness one of these incredible frames being manufactured from start to finish, Swiss Engineering with Italian artisan mastery. \n\nIt really does not get any better and if you have some time to spare, we would strongly recommend heading to our YouTube channel to watch the full build and immerse yourself in the cutting edge of carbon fibre unishell monocoque bicycle frame creation with processes we have never captured before!\n\nIt’s a real treat to say the least!\n\nIf it doesn’t make you want to own and ride one of these frames, nothing else will! \n\nHead over to the SWI cycling website and get on the configurator to access options and find your nearest dealer, if you’re in the UK then drop @bike_tailor a message and get yourself the best bike fit in the business at the same time as ordering your own SWI Dream Build!", "titulo": "", "owner_name": "Dream Build", "username": "dream_build_bikes", "tags": ["Composites / Fibra"], "thumbnail": "thumbnails/DVwSNB3jK5_.jpg"}, {"url": "https://www.instagram.com/reel/DWtrpO-ATPa/", "descripcion": "What does CNC cutting machine can cut for you in corrugated cardboard? #factory #machine #corrugated #carton #cnc", "titulo": "", "owner_name": "Sandy Ching", "username": "sandyhuatao", "tags": ["Moldeo por inyección", "CNC / Mecanizado"], "thumbnail": "thumbnails/DWtrpO-ATPa.jpg"}, {"url": "https://www.instagram.com/reel/DXIzedcE8oh/", "descripcion": "Plastic Spoon Factory Making #viral #trending #reels #shorts #bhookhasher", "titulo": "", "owner_name": "Neeraj Koli 🧿", "username": "bhookhasher1", "tags": ["Plásticos / Polímeros"], "thumbnail": "thumbnails/DXIzedcE8oh.jpg"}, {"url": "https://www.instagram.com/reel/DW4onclEXpp/", "descripcion": "De risco em risco vai se formando o zigrinado, não tem jeito, é ter paciência mesmo pois cada linha é feita individualmente.\n\n#paciência #zigrinado #artesanal", "titulo": "", "owner_name": "Marcelo Lubaczwski", "username": "marcelaolubaczwski", "tags": ["Artesanía / Craft"], "thumbnail": "thumbnails/DW4onclEXpp.jpg"}, {"url": "https://www.instagram.com/reel/DWps4XfEWdG/", "descripcion": "Cone rolling🔥the art of machining🔥🔥 #antishicnc  #rollingmachine #metalwork #MachineManufacturer #machining", "titulo": "", "owner_name": "Antishicnc Machine", "username": "antishicnc_", "tags": ["CNC / Mecanizado", "Metalurgia"], "thumbnail": "thumbnails/DWps4XfEWdG.jpg"}, {"url": "https://www.instagram.com/reel/DWa4dilIHRC/", "descripcion": "Handcrafted Stone Teapot: Traditional Craft & Skill\n\nStone teapots made with pure handcrafting and stone teapot processing, showcasing exquisite skills and traditional craftsmanship.\n\n#Stone #StoneTeapot #PureHandcrafting #StoneTeapotProcessing #ExquisiteSkill #TraditionalCraftsmanship #granite #naturalstone #stones #NaturalLedgestone #construction #stonelaminates #StoneProcessing #CustomStoneWork #MarbleFabrication #CNCStoneCutting #GraniteProcessing #StoneCraftsmanship #PremiumStoneFinishing #InteriorDesignStone #CommercialStoneWork #ResidentialStone #StoneExperts #WaterJetCutting #StoneRenovation #LuxuryStone #DesignerStoneSolutions #LexiangStone", "titulo": "", "owner_name": "LexiangStone", "username": "lexiangstone", "tags": ["CNC / Mecanizado", "Artesanía / Craft"], "thumbnail": "thumbnails/DWa4dilIHRC.jpg"}, {"url": "https://www.instagram.com/reel/DWjZthhDnPF/", "descripcion": "Femtosecond Laser Machining", "titulo": "Micro intervenciones laser sobre metales.", "owner_name": "𝗢𝗰𝘁𝗮𝗻𝗲 𝗪𝗼𝗿𝗸𝗵𝗼𝗹𝗱𝗶𝗻𝗴", "username": "octane_workholding", "tags": ["CNC / Mecanizado", "Corte láser", "Metalurgia"], "thumbnail": "thumbnails/DWjZthhDnPF.jpg"}, {"url": "https://www.instagram.com/reel/DWUEilfmCWd/", "descripcion": "Unedited video of a deep draw inversion! This started as a 6” disc, was drawn into a 3.5” cylinder and now is being inverted into a 2.5” cylinder. \nNext up I think I’m going to take this into 2” wine glass shape…", "titulo": "", "owner_name": "Bonny Doon Tools", "username": "bonnydoontools", "tags": ["Estampado / Forja"], "thumbnail": "thumbnails/DWUEilfmCWd.jpg"}, {"url": "https://www.instagram.com/reel/DQ80nmpivqa/", "descripcion": "⚠️ Tired of those weld lines ruining your product’s surface?\n\nThey’re not just cosmetic — weld lines can weaken your part, affect sealing, and even cause functional failure.\n\nSo, why do they appear?\n💡 When two or more melt fronts meet inside the cavity without enough temperature or pressure, they fail to fuse completely — leaving that visible weld mark.\n\nAt Alpine Mold, our engineers optimize:\n✅ Gate position and flow balance to ensure proper melt convergence\n✅ Mold venting design for smooth air escape\n✅ Injection parameters like speed and back pressure to maintain temperature consistency\n\nWith precise Moldflow simulation and years of tooling experience,\nwe don’t just find the cause — we engineer it out before steel is cut.\n\n📩 amy@alpinemold.com\n🌐 www.alpine-mold.com\n📞 WhatsApp: +86 15927783200\n\n#InjectionMolding #WeldLine #MoldDesign #MoldFlow #PlasticMold #MoldingDefects #MoldMaking #InjectionMold #EngineeringDesign #ProcessOptimization #Tooling #Manufacturing #ProductDesign #AlpineMold", "titulo": "", "owner_name": "Alpine Mold", "username": "alpine_mold", "tags": ["Metalurgia", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DQ80nmpivqa.jpg"}, {"url": "https://www.instagram.com/reel/DWEaK6xAcUD/", "descripcion": "Compression molding using Sheet Molding Compound (SMC) is a process that turns a soft, fiber-reinforced material into strong and precisely shaped products. A dough-like compound is placed into a heated mold, where a hydraulic press applies high pressure, forcing it into every detail. Heat triggers a curing reaction that hardens the material permanently. The result is a lightweight, durable, and high-gloss component made with consistent precision.\n\n#innovation #viral #meme", "titulo": "", "owner_name": "Exploring Technology", "username": "explorring.technology", "tags": ["Moldeo por inyección"], "thumbnail": "thumbnails/DWEaK6xAcUD.jpg"}, {"url": "https://www.instagram.com/reel/DVZRvOQkqxw/", "descripcion": "Watching thermoforming never gets old!#moceankayaksandcanoes #madeinusa #smallbusiness #paddle", "titulo": "", "owner_name": "Mocean Kayaks and Canoes", "username": "moceankayaksandcanoes", "tags": ["Termoformado"], "thumbnail": "thumbnails/DVZRvOQkqxw.jpg"}, {"url": "https://www.instagram.com/reel/DSmyJ-GEREq/", "descripcion": "Mass production process of transparent comb inner tray packaging box, including the manual development of vacuum molds.", "titulo": "", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DSmyJ-GEREq.jpg"}, {"url": "https://www.instagram.com/reel/DRvbukiCoPN/", "descripcion": "Redefining Panel Fabrication with Advanced Solutions ✨\n\nExperience the Armdax AF1200 Bending Center – where intelligent engineering meets material innovation:\n🔹 Suction Cup Feeding – Auto‑rotation • Auto‑positioning\n🔹 Smart Panel Recognition – Auto-alignment with precision programming\n🔹 Precision Cabinet Bending – Flawless surfaces meet rigid structural corners\n\nReady to engineer the future of fabrication?\n📩 Contact us today for your customized solution!\n📩 Email: info@armdax.com\n💬 WhatsApp: +86 133 9279 0053\n🌐 Website: www.armdax.com\n#armdaxbendingcenter #bendingcenter #panelbendingmachine #AutomatedBending #metalprocessing #factorydirect #sheetmetalfabrication #panelbendercenter #smartmanufacturing", "titulo": "", "owner_name": "Armdax panel bender", "username": "armdaxpanelbender", "tags": ["CNC / Mecanizado", "Chapa / Plegado", "Metalurgia"], "thumbnail": "thumbnails/DRvbukiCoPN.jpg"}, {"url": "https://www.instagram.com/reel/DKxj7RYykXl/", "descripcion": "#tapasplasticas #envases #injectionblowmolding #ibm", "titulo": "", "owner_name": "TecmePack", "username": "tecmepack", "tags": ["Moldeo por inyección", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DKxj7RYykXl.jpg"}, {"url": "https://www.instagram.com/reel/DRhlN9NESW6/", "descripcion": "Vacuum forming process for manufacturing 5mm white ABS large drone shell#vacuumforming #plastics", "titulo": "", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DRhlN9NESW6.jpg"}, {"url": "https://www.instagram.com/reel/DNMeTuRBSyb/", "descripcion": "Transparent pet basin anti-scratch inner pad to prevent scratching of wooden floors#vacuumforming", "titulo": "Fabricación de matriz industrial para termoformado", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DNMeTuRBSyb.jpg"}, {"url": "https://www.instagram.com/p/DKPBMwqMVcx/", "descripcion": "WAKERS by @nosigner_design, a wall-mounted tool cabinet that unfolds into a workstation", "titulo": "", "owner_name": "ID_CURATED", "username": "id_curated", "tags": ["ELIMINAR"]}, {"url": "https://www.instagram.com/reel/DI_YTqgifxz/", "descripcion": "Ever thought about turning your garage into a 3D printing manufacturing center? With a $135,000 personal investment and just three hours of daily work, Joshua Driggs (@zapwizard )built a complete in-house workflow using the Formlabs Fuse 1+ SLS Ecosystem. The result?\n\nThousands of products shipped out and a full return on investment in just seven months\n\nJoin our live webinar with Joshua Driggs to discover how he optimized his SLS workflow for prototyping and end-use production. Bring your questions and gain practical insights live on Tuesday, April 29th at 11 AM ET/ 4 PM GMT.\n\nSign up here for free: https://formlabs.wistia.com/live/events/wlvutrx0o4?utm_source=general&utm_medium=social&utm_campaign=zapwizard-webinar-2025-04-29-global", "titulo": "", "owner_name": "Formlabs", "username": "formlabs", "tags": ["CNC / Mecanizado", "Impresión 3D", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DI_YTqgifxz.jpg"}, {"url": "https://www.instagram.com/reel/DI0ZiIzRHvA/", "descripcion": "Transparent soldering iron heating core folding packaging box mold development sample production", "titulo": "Fabricación de matriz industrial para termoformado de packaging", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DI0ZiIzRHvA.jpg"}, {"url": "https://www.instagram.com/reel/DHVJHZquaJw/", "descripcion": "The design and model of phone cases are always updated！#PhoneCase#mobilephonecase\n#source-factory #factory shoot\n#injectionmold #phonecaseproduction \n#PhoneCaseMold #phonecasemanufacturing", "titulo": "", "owner_name": "Spreading-Phonecasemold", "username": "spreading_phonecasemold", "tags": ["Moldeo por inyección"], "thumbnail": "thumbnails/DHVJHZquaJw.jpg"}, {"url": "https://www.instagram.com/reel/DHIqc8aMxYV/", "descripcion": "А вы сразу поняли какое изделие в производстве? 🩵 \n\nwww.morales.store", "titulo": "", "owner_name": "МЯГКАЯ МЕБЕЛЬ НА ЗАКАЗ MORALES", "username": "stas_morales", "tags": ["Espuma de poliuretano"], "thumbnail": "thumbnails/DHIqc8aMxYV.jpg"}, {"url": "https://www.instagram.com/p/DEPnOHjR4ff/", "descripcion": "Great👍👍\n🌺🌺Follow @engineering.concepts to see more.. \n. \nSource: unknown\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\n-----------------------------------------------------------\n#equipment #industry #machine #engineering #physics #industrial #engineeringconcepts  #concepts #technology #gadget #interiors", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["Chapa / Plegado", "Estampado / Forja", "Metalurgia"], "thumbnail": "thumbnails/estampado.jpg"}, {"url": "https://www.instagram.com/reel/DD9PzENhiIv/", "descripcion": "クリスマスを彩る🌲苺のショートケーキ🍰🍓【銀座コージーコーナー】\n\n銀座コージーコーナーの工場でクリスマスにぴったりな苺のショートケーキを作る様子をご紹介します！🍓✨\n\nリッチで風味豊かなミルク感のあるクリームと、オリジナルの小麦粉を使ってきめ細かく焼き上げたふわふわのスポンジが、口の中で同時に溶けていく...🤤\n\nクリスマスの特別なひとときを、苺のショートケーキで彩りませんか？🍰\n\nサンタさん、今年のクリスマスプレゼントには、いちごのショートケーキをたーっくさんください🎅🎁\n\n苺のショートケーキ　490円（税抜）\n※商品価格は動画公開時点のものです\n※商品は販売終了もしくは仕様変更することがございます\n\n#コージーコーナー #銀座コージーコーナー  #ケーキ作り #クリスマスパーティー #ショートケーキ #いちご #いちごスイーツ #クリスマスケーキ #スイーツ # #工場見学 #工場 #お菓子作り #ケーキ屋さん #christmas #christmascake. #cake  #sweets #ginza #ginzacozycorner #cakeshop #ご褒美スイーツ #おうちカフェ", "titulo": "", "owner_name": "Tastemade Japan テイストメイドジャパン", "username": "tastemade_japan", "tags": ["Alimentaria"], "thumbnail": "thumbnails/DD9PzENhiIv.jpg"}, {"url": "https://www.instagram.com/reel/DCMZS0Kykg0/", "descripcion": "✅️ Follow us ✅️ Multi-axis 3D Printing!\n\nMulti-axis 3D printing is a cutting-edge technology that expands the capabilities of traditional 3D printing by incorporating additional rotational axes. This allows for the creation of intricate and complex geometries, reducing the need for support structures and improving part quality. With enhanced design freedom and faster print times, multi-axis 3D printing finds applications in various industries, including aerospace, automotive, medical, and art. While challenges such as complex software and hardware, higher cost, and limited material compatibility persist, advancements in technology are continually pushing the boundaries of this promising field.\n\n#multiaxis #3dprinting #additivemanufacturing #designfreedom #partquality #printtime #versatile #aerospace #automotive #medical #art #software #hardware #material #complexgeometry #supportstructures #intricate #precise #futuretech #innovation #industry #manufacturing #Technology", "titulo": "Multi eje y multi herramienta, deposición de elastómeros para calzado", "owner_name": "UKnoWhat?", "username": "uknowhat.team", "tags": ["Impresión 3D", "Plásticos / Polímeros"], "thumbnail": "thumbnails/DCMZS0Kykg0.jpg"}, {"url": "https://www.instagram.com/reel/C_sJ2ODA5rG/", "descripcion": "8 minutes dans les coulisses de l’usine où nous assemblons nos minifigurines LEGO ! Very demure, very mindful… ✨🔩\n\n#LEGO #LEGOFrance #LEGOFactory", "titulo": "", "owner_name": "LEGO France", "username": "legofrance_official", "tags": ["Espuma de poliuretano"], "thumbnail": "thumbnails/C_sJ2ODA5rG.jpg"}, {"url": "https://www.instagram.com/p/C_iD4JgRDkd/", "descripcion": "💯💯💯\n🌺🌺Follow @engineering.concepts to see more.. \n. \nSource: unknown\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\n-----------------------------------------------------------\n#equipment #industry #machine #engineering #physics #industrial #engineeringconcepts  #concepts #technology #gadget #interiors", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"]}, {"url": "https://www.instagram.com/reel/C_TJzQRN4Ld/", "descripcion": "دستگاه تزریق پلاستیک خونگی 😂😂 \n#قالبسازی_بهمن_چه #سایت_صنعت #تزریق_پلاستیک #صنعت_کاران #تولید", "titulo": "", "owner_name": "پرس سازی و قالبسازی بهمن چه | سایت صنعت", "username": "site_sanat", "tags": ["Moldeo por inyección", "Plásticos / Polímeros"], "thumbnail": "thumbnails/C_TJzQRN4Ld.jpg"}, {"url": "https://www.instagram.com/reel/C9mbAHhuARS/", "descripcion": "印字が浮き出て消える新世代の印鑑を作るプロセス！\n唯一無二の「未来印」の製造工程に密着！\nフル動画はYouTubeでご覧ください！\nプロフィール欄のリンクからチャンネルへ！\n\n#印鑑 \n#実印 \n#製造工程 \n#未来印 \n#seals \n#seal", "titulo": "Electro erosión por hilo. Minimas tolerancias. Sello plegable.", "owner_name": "THE PROCESS ザ・プロセス", "username": "theprocess_video", "tags": ["CNC / Mecanizado", "Metalurgia"], "thumbnail": "thumbnails/C9mbAHhuARS.jpg"}, {"url": "https://www.instagram.com/reel/C-NTjg2pz39/", "descripcion": "Thankyou Wissmach Glass for letting us watch. I think i lost 7lbs water weight.. 10/10 would do again. #wissmachglass #glassfactory #artglass #glasshustle #sheetglasssaturday", "titulo": "Fabrica de laminado de vidrio artesanal.", "owner_name": "Artglas", "username": "dsartglas", "tags": ["Ceramicas / Vidrio"], "thumbnail": "thumbnails/C-NTjg2pz39.jpg"}, {"url": "https://www.instagram.com/reel/C8g4r-ESH9j/", "descripcion": "The process of making a Japanese bamboo flute..\nA workshop with 100 years of history..\n\nYou can watch the full video of making bamboo flute from the link in bio..\n\n#kyoto #art #crafts #bamboo #craftsmanship", "titulo": "", "owner_name": "SUIGENKYO KYOTO", "username": "suigenkyo.official", "tags": ["Artesanía / Craft"], "thumbnail": "thumbnails/C8g4r-ESH9j.jpg"}, {"url": "https://www.instagram.com/reel/C7dWmWUNQ91/", "owner_name": "Cassie Shi", "username": "cassi_e0407", "tags": ["Plásticos / Polímeros", "PVC", "Juguetes"], "thumbnail": "thumbnails/C7dWmWUNQ91.jpg", "titulo": "Plastisol, deposicion automatizada para jugetes o promocionales."}, {"url": "https://www.instagram.com/reel/C6xRbO_r5ME/", "descripcion": "Toy transparent bottom cover inner tray mold development, design and production process", "titulo": "", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado", "Plásticos / Polímeros", "Juguetes"], "thumbnail": "thumbnails/C6xRbO_r5ME.jpg"}, {"url": "https://www.instagram.com/reel/C5RDU5yLmFw/", "descripcion": "The tooling for Paul Marlinski spindle! All set and ready to be turned into beautiful spindles, made of High Density Urethane board! To be continued…\n👉 https://highlandmanorwoodproducts.com/\n\n#woodproducts #highlandmanorwoodproducts #stairspindle #madeinusa", "titulo": "", "owner_name": "Highland Manor", "username": "highland.manor", "tags": ["CNC / Mecanizado", "Madera / fibras naturales"], "thumbnail": "thumbnails/C5RDU5yLmFw.jpg"}, {"url": "https://www.instagram.com/reel/C576SE8OEEA/", "descripcion": "Thermoforming process to make black hanging neck fan inner support packaging", "titulo": "", "owner_name": "Dongguan WANBANG Packaging Products Co., Ltd.", "username": "vacuum_thermoforming", "tags": ["Termoformado"], "thumbnail": "thumbnails/C576SE8OEEA.jpg"}, {"url": "https://www.instagram.com/reel/C5L5ZVby63t/", "descripcion": "The process of making a hand-woven bamboo bag from a single bamboo. Wonderful Japanese manufacturing process.\nYou can watch the full video of making a bamboo bag from the link in bio!!\n\n#kyoto #crafts #art #bamboo #bag", "titulo": "", "owner_name": "SUIGENKYO KYOTO", "username": "suigenkyo.official", "tags": ["Artesanía / Craft"], "thumbnail": "thumbnails/C5L5ZVby63t.jpg"}, {"url": "https://www.instagram.com/reel/C32dUDetWKO/", "descripcion": "🔉 ASMR LEGO - PARTIE 3 🔉\n\nAujourd’hui à l’usine, nos minifigurines reçoivent leurs mains ! Pratiques pour se serrer la pince ou juste faire coucou 👋 Suivez le guide et *surtout* profitez du doux bruit bien relaxant ZzzzZz… 😌 \n\n#LEGOFrance #LEGO #ASMR", "titulo": "Planta automatizada de fabricación de LEGOS.", "owner_name": "LEGO France", "username": "legofrance_official", "tags": ["Moldeo por inyección", "Plásticos / Polímeros", "Juguetes", "Ensamblado"], "thumbnail": "thumbnails/C32dUDetWKO.jpg"}, {"url": "https://www.instagram.com/reel/C1Ckrl_JvPW/", "descripcion": "We’re in puppy love with this CNC machined masterpiece 😍🦴\n\n📸Credits: TITANSofCNC (YouTube)\n#cnc #cncmachining #engineering #dog #pitbull #metal #hubs #hubsmfg", "titulo": "", "owner_name": "Protolabs", "username": "protolabsmfg", "tags": ["CNC / Mecanizado", "Metalurgia", "Plásticos / Polímeros"], "thumbnail": "thumbnails/C1Ckrl_JvPW.jpg"}, {"url": "https://www.instagram.com/reel/CzbuxV5IpuG/", "descripcion": "ANOTHER PIZZA 🍕😅😋 PEPPERONI 🍕\n.\n.\n.\n📸 @pizzacityusa \n.\n.\n.\n.\n.\n\n#food #tasty #maroc #foodstagram #followme #yummy #pizzafattaincasa #delicious #foodlover #pizzaiolo #pizzatime #mushireb #pizzanapoletana #foodie #italianfood #pizzeria #Morocco #qatar #foodphotography #qatar #pizzanapoli #italyfoodporn #homemade #pizzahomemade #foodblogger #pizzalover #homemadefood #pizza #doha #jalilopizza .", "titulo": "", "owner_name": "chef.do", "username": "chefopizza", "tags": ["Alimentaria"], "thumbnail": "thumbnails/CzbuxV5IpuG.jpg"}, {"url": "https://www.instagram.com/reel/C0Kor4Ar52k/", "descripcion": "¡Unite al recorrido por la fábrica de @golosinasplin y descubrí todos sus secretos! 🏭✨\n\nAcompañanos a conocer esta icónica marca de juguitos congelados, las famosas gallinitas, turrones de arroz, mielcitas, helados, chupetines y mucho más. 🍭🍦\n\nAlgunos datos curiosos:\n🕵🏻‍♀️ Una de sus plantas es 100% libre de gluten, donde elaboran helados, juguitos, caramelos liquidos y más.\n🕵🏻‍♀️ Hoy se encuentran trabajando tres generaciones: desde José Carlos Fermanelli, sus hijos y nietos\n🕵🏻‍♀️ Comenzó en el año 1964 cuando José Carlos Fermanelli, conocido como el Kuki, comenzó elaborando caramelo liquido en el salón de una carnicería de su padre \n🕵🏻‍♀️ En el 2004 comenzo a producir helados de agua, crema y palito bombón, incorporando una pequeña máquina que realizaba 1000 palitos por hora \n🕵🏻‍♀️ Es la única empresa que utiliza un envase secundario para el juguito congelado evitando cualquier riesgo de contaminación\n\n¿A quién más le traen muchos recuerdos sus productos?\n\n¿Ahora por qué fábrica seguimos? Los leo 👇🏻", "titulo": "", "owner_name": "Morfando Ando 🤤", "username": "cordobagourmet", "tags": ["Plásticos / Polímeros", "Fabricación AR", "Alimentaria"], "thumbnail": "thumbnails/C0Kor4Ar52k.jpg"}, {"url": "https://www.instagram.com/reel/CyJCzDIOurv/", "descripcion": "We're always stoked to bring you a sneak peak of the newest gear coming out. This time our friend @gearnote has captured the Metolius Roll Up Stick clip, due out Spring '24. \n\nThe price shows it's not for the average stick clip user, but its compact nature, included clip, and camera (or brush!) mount make it pretty multifunction, and we're definitely intrigued by the roll-up material that becomes rigid (!?) 😲 \n\nWe could see using this Roll Up clip as a key piece on a hard aid climb / first ascent where you can’t justify the size of most stick clips. Or this could be super interesting for some Drone like shots, that can get closer to the wall than any drone can. What creative possibilities do you see?", "titulo": "", "owner_name": "gearnotes", "username": "gearnote", "tags": ["ELIMINAR"], "thumbnail": "thumbnails/CyJCzDIOurv.jpg"}, {"url": "https://www.instagram.com/reel/Cy060ZtNTqL/", "descripcion": "All the POWER...without the WEIGHT! This is the EXO-T-22 Tool Balancer. Incredibly impressive! #hiltipartner\n\nSelf balancing weight distribution to the hips and legs, saving the back and upper body from extreme fatigue.\n\n@hiltinorthamerica #uncompromise #construction #contractor #concrete #hiltinuron #plumber #electrician #demolition\n\n@hilti \n@enelgaragedemartincho \n@martinchosgarage", "titulo": "", "owner_name": "Travis Collins", "username": "toolsbydesign", "tags": ["ELIMINAR"], "thumbnail": "thumbnails/Cy060ZtNTqL.jpg"}, {"url": "https://www.instagram.com/p/CxLhNOGNJGd/", "descripcion": "Fun with Fabrics N°5 \"Starflower\" ⭐\n\nExplorations with tech fabrics and dramatic lighting. \n\n#3d #design #octane #art #inspiration", "titulo": "", "owner_name": "Roman Bratschi", "username": "romanbratschi", "tags": ["ELIMINAR"]}, {"url": "https://www.instagram.com/reel/Cxh_S32L8E-/", "descripcion": "The process of making traditional Japanese dolls. Traditional crafts made in Kyoto for 1,000 years\n\n#kyoto #doll #craft #process #japanesecraftsmanship", "titulo": "", "owner_name": "SUIGENKYO KYOTO", "username": "suigenkyo.official", "tags": ["Composites / Fibra", "Artesanía / Craft", "Juguetes", "Madera / fibras naturales"], "thumbnail": "thumbnails/Cxh_S32L8E-.jpg"}, {"url": "https://www.instagram.com/reel/CwaT9SZp95I/", "descripcion": "Just print, print, print.", "titulo": "", "owner_name": "Andrew Ye", "username": "hotingscreenprinting", "tags": ["Serigrafía", "Impresion / Estampa"], "thumbnail": "thumbnails/CwaT9SZp95I.jpg"}, {"url": "https://www.instagram.com/reel/CxTrJFqPvig/", "descripcion": "💡Dosificadora de helados en tacita \n\nFuente video: Cuenta Tik Tok olaruion461", "titulo": "", "owner_name": "Tomas Gill", "username": "curiosidadalimentaria", "tags": ["Alimentaria"], "thumbnail": "thumbnails/CxTrJFqPvig.jpg"}, {"url": "https://www.instagram.com/reel/CxL8CqXJ7r4/", "descripcion": "Fexa, una empresa con responsabilidad ambiental y social 👏♻👨‍👩‍👦‍👦\n\n🔝 En su planta de Rosario, cuentan con 192 colaboradores y tienen una capacidad de producción de 250 toneladas mensuales!\n\n🔥 Además a fin de este mes esperan por incorporar una prensa nueva que les permitirá duplicar su producción hasta 500 toneladas\n\n❤ A traves de la carpinteria toman proyectos de escuelas públicas, clubes barriales, merenderos, hogares de tránsito que no puedan pagar las aberturas de aluminio.\n\n👩‍🏭 También hace cinco años incoporaron la perspectiva de género e iniciaron carpinterias exclusivas para mujeres. Veían que es un oficio culturalmente asociado al hombre, y las mujeres no se animaban a participar. Al dia de hoy llenan todos los cupos disponibles.\n\n#fabrica #argentina #industria #industrianacional #empresasargentinas #aluminio #reciclaje #genero #mujeres #empresa #rosario", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Metalurgia", "Fabricación AR"], "thumbnail": "thumbnails/CxL8CqXJ7r4.jpg"}, {"url": "https://www.instagram.com/reel/Cw5-DA3RmXG/", "descripcion": "The BB-4816M magnetic sheet metal brake is a unique box and pan brake that has nearly endless bending possibilities when compared to most conventional sheet metal brakes.\n\n#tricktools #baileigh #baileigharmy #magbrake #fabshop #sheetmetalfab #sheetmetal #metalwork #hotrod #rodshop", "titulo": "", "owner_name": "Trick-Tools", "username": "tricktools", "tags": ["Chapa / Plegado", "Metalurgia", "Plásticos / Polímeros"], "thumbnail": "thumbnails/Cw5-DA3RmXG.jpg"}, {"url": "https://www.instagram.com/reel/CxDJfvAIN__/", "descripcion": "Making White Cricket Ball In Few Seconds!", "titulo": "", "owner_name": "Smartest Workers", "username": "smartest.worker", "tags": ["Soplado", "Plásticos / Polímeros"], "thumbnail": "thumbnails/CxDJfvAIN__.jpg"}, {"url": "https://www.instagram.com/reel/CtbvuG9MZWy/", "descripcion": "Mario es el matricero de Rasti, donde diseña los ladrillitos con los que juegan los chicos. Hace más de 30 años que trabaja en la empresa, donde aprendió el oficio y se ocupa de transmitir todo lo que sabe a su equipo.", "titulo": "", "owner_name": "Talento Argentino", "username": "talentoargentino_", "tags": ["Moldeo por inyección", "Fabricación AR"], "thumbnail": "thumbnails/CtbvuG9MZWy.jpg"}, {"url": "https://www.instagram.com/reel/CwlFn8zP1UC/", "descripcion": "Basso SA es un ejemplo de que nuestro país tiene para dar, para competir y para ganar. \nDesde Argentina, en la ciudad de Rafaela, la empresa provee a grandes marcas automotrices como Ferrari. Emplea a más de 500 personas en sus tres turnos, trabajando las 24 horas del día en su planta de más de 20 mil metros cuadrados.\n\nVideo de TikTok de @ezequielmartintor0", "titulo": "", "owner_name": "Marcas Argentinas", "username": "marcas_argentinas", "tags": ["Plásticos / Polímeros", "Fabricación AR"], "thumbnail": "thumbnails/CwlFn8zP1UC.jpg"}, {"url": "https://www.instagram.com/reel/CwQ5tYBovZc/", "descripcion": "#90mas10Tour Fontenla lanza colecciones cada seis meses, con líneas que se van sumando, sin discontinuar otras. Están los muebles outdoor, las colecciones cápsula y la línea joven FC, a la que se suman las carteras y los perfumes. La planta industrial de más de 9 mil m² en Villa Lugano está equipada con máquinas artesanales, y las piezas son terminadas a mano por artesanos con más de 40 años de oficio. ¿La recorremos juntos?\n\n➡️Si querés saber más sobre @fontenla_furniture , podés leer la entrevista a Fernando y Federico Fontenla en http://90mas10.com/ (tenés que copiar y pegar el link para que funcione).\n\n💥Gracias a Román Trabado y a Facu Modic por guiarme en este inolvidable tour por la planta de Fontenla.\n\n✍📢🎥 Soy @marcelafibbiani y hablo de diseño.\n\n#90mas10 #90mas10Mag #90mas10Magazine #Diseño #Design @federico.fontenla @fer.fontenla @pampitabyfontenlaok", "titulo": "", "owner_name": "Marcela Fibbiani", "username": "marcelafibbiani", "tags": ["Fabricación AR", "Madera / fibras naturales", "Mobiliario"], "thumbnail": "thumbnails/CwQ5tYBovZc.jpg"}, {"url": "https://www.instagram.com/reel/CvsuGEnJ--G/", "descripcion": "AAAAAAAAAA 😵‍💫🤯 me fascinan estos videos.\n\n🏭 Axtor\n📍 9 de julio, Buenos Aires \n🎥 @adimra.joven", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Fabricación AR"], "thumbnail": "thumbnails/CvsuGEnJ--G.jpg"}, {"url": "https://www.instagram.com/reel/CsoNBJFpky3/", "descripcion": "😯😯😯\n🚀For Us For More Interesting Stuff Like ❤️ This\n\n📩DM for credit or removal request (no copyright intended )\n\n🔗All Rights and Creadit reserved to the respective owners 🙏\n\n#sosatisfying #techy #innovations #smartphone #newtech #futuregoals #satisfyingvideo #usatoday #techblogger #cooltech #satisfying #newtechnology #technologytheses #innovation #techworld #technologies #techlover #satisfyingsound #futuretech #technologynews #idea #engineerlife #engineering", "titulo": "Hidro-printing de juguetes.", "owner_name": "Tecnology • gadgets • tools", "username": "iamk.24__", "tags": ["Juguetes", "Impresion / Estampa"], "thumbnail": "thumbnails/CsoNBJFpky3.jpg"}, {"url": "https://www.instagram.com/reel/CtKeF9bpSyL/", "descripcion": "Así se fabrican las piletas de Acero Inoxidable!\n\n🏭 Recorrimos la fábrica de Johnson Acero, empresa líder de Argentina en el diseño, fabricación y venta de piletas de Acero Inoxidable que diariamente utilizamos en nuestras casas. \n\n👨🏻‍🏭 El procesamiento del acero es una técnica milenaria con orígenes artesanales que, con la incorporación de alta tecnología, Johnson Acero produce más de 35.000 unidades mensuales representados en distintos modelos 🔥\n\n📍 Su sede fabril y administrativa se encuentra en Paraná - Entre Ríos, brindando trabajo a más 450 personas 👏\n\n#empresas #acero #fabrica #industrianacional #argentina #industria #información #asmr #reelsinstagram", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Chapa / Plegado", "Metalurgia", "Fabricación AR"], "thumbnail": "thumbnails/CtKeF9bpSyL.jpg"}, {"url": "https://www.instagram.com/p/CsmKUNeML_9/", "descripcion": "edgy sheet metal scapes at the @ottim workshop \n\n#sheetmetal #lasercutting #bending #manufacturing #shopvisit #workshop #productdesign #industrialdesign \n@udk_productdesign @udk_designandsocialcontext", "titulo": "", "owner_name": "Tim Schütze", "username": "timschuetze", "tags": ["Corte láser", "Chapa / Plegado", "Metalurgia"]}, {"url": "https://www.instagram.com/reel/CrZQvvYPsgd/", "descripcion": "How surgical instrument are made\n\n#manufacturing #restoration #repair #reels #reel #reelsinstagram #reelsvideo #reelsindia #reelsinsta #reelsviral #reelslovers #repost #process #production #restoration #factory #reelitfeelit #reelkarofeelkaro #reelsvideo #instagramreels #insta #igersoftheday #explorer #herconceivedfeelings", "titulo": "Proceso completo de producción de tijeras", "owner_name": "Humble Side", "username": "humblesideofficials", "tags": ["Chapa / Plegado", "Metalurgia", "Forja"], "thumbnail": "thumbnails/CrZQvvYPsgd.jpg"}, {"url": "https://www.instagram.com/reel/Cri7jJgNHnm/", "descripcion": "How motorcycle silencers are made", "titulo": "", "owner_name": "Humble Side", "username": "humblesideofficials", "tags": ["Chapa / Plegado", "Metalurgia"], "thumbnail": "thumbnails/Cri7jJgNHnm.jpg"}, {"url": "https://www.instagram.com/reel/CpxZ03sDzHg/", "descripcion": "Metal wire bending machine producing kitchen tools.\n\n📸 Credits: Unionspring_Tech1204 (YouTube)\n\n#engineering #factory #metal #metalworks #wire #wirebending #wirebender #wirebendingmachine #automation #industrial #industrialmachinery", "titulo": "", "owner_name": "Protolabs", "username": "protolabsmfg", "tags": ["CNC / Mecanizado", "Chapa / Plegado", "Metalurgia", "Plásticos / Polímeros"], "thumbnail": "thumbnails/CpxZ03sDzHg.jpg"}, {"url": "https://www.instagram.com/reel/CnF51Q_okq9/", "descripcion": "Making the mold really is 90% of the work when it comes to making completely new composite parts from digital designs, and the process to get there has so many steps. These relatively simple interior panels that are destined to be made from carbon start out as male pattern plugs, machined from wood in this case on my @matterhackers Shapeoko CNC. From there they are primed and built high with Duratec primer, blocked flat and polished to a high gloss. After release wax and sprayed PVA is applied, tooling gel is sprayed on with a dump gun and the part is laid up with fiberglass. Some simple foam noodles are cut in half and used as profiles to add reinforcement around the mold for rigidity, and the mold is pulled off the plug with a satisfying release. A quick polish on the gel coat and this new mold is ready for carbon layup and infusion over the weekend! 🤓\n\n#mikebuildsadatsun #datsun #datsun620 #design #engineering #mechanicalengineering #cad #solidworks #fusion360 #cnc #shapeoko #machining #cam #composites #carbon #carbonfiber #moldmaking #patternmaking #fiberglass #resininfusion #whocanguesshowmanyhours #munsseyandpaulknow", "titulo": "Fabricacion de matriz en MDF", "owner_name": "Mike OBrien", "username": "3d_magic_mike", "tags": ["CNC / Mecanizado", "Composites / Fibra", "Plásticos / Polímeros", "Artesanía / Craft"], "thumbnail": "thumbnails/CnF51Q_okq9.jpg"}, {"url": "https://www.instagram.com/reel/CmBmXkWjerN/", "descripcion": "Amazing work..\nCredit : @tranyond_machine_tool\n🌺🌺Follow @industrial.highlights to see more.. \n. \n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s). \n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts  #pressbrakes #sheetmetal #sheetmetalpro #panelbender #sheetmetalbending #lasercutting #metalworks #sheetmetalbending #laserwelding #sheetmetalbending #pressbraketooling #pressbraketoolings #bendingtool #tools #fabrication #metalworking #sheetmetal #sheetmetalfabrication #manufacturing #brakepress #groovebending", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado", "Corte láser", "Chapa / Plegado", "Metalurgia"], "thumbnail": "thumbnails/CmBmXkWjerN.jpg"}, {"url": "https://www.instagram.com/reel/Cjl1SLCpJM9/", "descripcion": "CERVEZA GRATIS! 🍺🤩 Ahora que tengo su atención, te mostramos cómo se hacen los preciados cajones de birra 🙌\n\n👉🏻 @cabelmacajones fabrica diferentes modelos de cajones y baldes plásticos. 👀 Más de la mitad del plástico que usan por año, es reciclado (+5000 toneladas 🤩♻️)\n\n🔙 Además, produjeron el primer cajón de birra del país en el año 1972! 😱 Hoy en día la empresa abastece diferentes clientes de diversos mercados como el agroindustrial, avícolas, frigoríficos, supermercados, lácteas, bebidas, panificados, fabricantes de pintura, materiales de construcción y aceites y lubricantes.\n\n📍 Tienen dos plantas, una en Tigre, Buenos Aires, y otra en Mendoza 🇦🇷", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Fabricación AR", "Alimentaria"]}, {"url": "https://www.instagram.com/reel/CiOkaFajg5U/", "descripcion": "Cricket Hard ball making technique.\n🌺🌺Follow @industrial.highlights to see more.. \n. \nSource: unknown\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s). \n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts \n#cricket #cricketmerijaan #indiancricket #cricketclub #cricketindia #cricket #cricketlover #worldcup #crickets #icct20worldcup #teamindia #cricketlove #cricketball #cricketfans #sharjah #cricketcoaching @star_scarf_gallery", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"], "thumbnail": "thumbnails/CiOkaFajg5U.jpg"}, {"url": "https://www.instagram.com/reel/CgfflyOJFMm/", "descripcion": "Bidones argentinos al mundo? 😲 Si! @labplasticos exporta todos sus productos a Nueva Zelanda, Kenia, España, Mexico y Uruguay 🌎👏🏻\n\nOrgullo argentino! 🤍", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Plásticos / Polímeros", "Fabricación AR"], "thumbnail": "thumbnails/CgfflyOJFMm.jpg"}, {"url": "https://www.instagram.com/reel/CfwD2e4s9jC/", "descripcion": "jewelry #jewellerytips #joyeros #jewelrytipsrepost #joyerias #joyero #jewelry3d #jewelleryclass #jewelrymakingtip #joyas #jewelrymakingtips #jewelryrepost #jewelrytutorial #joyeriabogota #3drender #3d #3djewellery #3dmodeling #3dprinting #handmade #viral #mundo #videos #viral #video #viral #reelsinstagram #reelsvideo #repost", "titulo": "", "owner_name": "Ú N I C A. Sandra Castaño - David Argumedo - ceras para joyería", "username": "moldesycerasunica", "tags": ["Moldeo por inyección", "Impresión 3D", "Artesanía / Craft", "Joyería"], "thumbnail": "thumbnails/CfwD2e4s9jC.jpg"}, {"url": "https://www.instagram.com/reel/CfKYzYopKgW/", "descripcion": "😯 Así se fabrica un envase de plástico... Lo tenías visto? 🤔\n\n🇦🇷 @labplasticos se dedica a la fabricación de envases y artículos plásticos desde 1982 ✅\n\nExportan a Uruguay, Nueva Zelanda, Kenia, España y México 🌎\n\n♻️ No son sólo simples contenedores de un producto, sino también protectores de las contaminaciones físicas, químicas y microbianas 👍🏻", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Plásticos / Polímeros", "Fabricación AR"], "thumbnail": "thumbnails/CfKYzYopKgW.jpg"}, {"url": "https://www.instagram.com/reel/CfFP8NbpcKw/", "descripcion": "Mirá como se hacen las 'papax' fritas de @axsnacks 🤤👏🏻\n\nEs una pyme familiar que abrió sus puertas el año pasado. Su fábrica está en Quilmes, prov de BSAS 🏭 y tienen presencia en 9 provincias 🥔\n\n💪🏻 Su sueño? Llegar a todo el país 🇦🇷", "titulo": "", "owner_name": "La Fábrica del Podcast", "username": "lafabricadel.podcast", "tags": ["Fabricación AR", "Alimentaria"], "thumbnail": "thumbnails/CfFP8NbpcKw.jpg"}, {"url": "https://www.instagram.com/tv/CfDMmBKqJEH/", "descripcion": "Glass Ball Maker Machine \n🌺🌺Follow @industrial.highlights to see more.. \n.\nSource: unknown\nRepost @techforyou_tekfy \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts #technology #manufacturing #manufacturer #machine #factory #production", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"], "thumbnail": "thumbnails/CfDMmBKqJEH.jpg"}, {"url": "https://www.instagram.com/reel/Ce5RcJ9Nm3i/", "descripcion": "Did you know this is how ceramic printing is done?😍🤩 Share this with someone that would love this 👇\n\n🎥 30972891384 (Döuyin)\n\n____\nJoin us at @d.signers_in @d.signers @zahiracury \n#print #printmaking #printmaker #printdesign #design #ceramic #ceramicart #ceramics #ceramiccoating #reel #reelsinstagram #reelitfeelit #reelsviral", "titulo": "Tampografiado engobe o bajocubierta", "owner_name": "D.Signers Products", "username": "d.signers_in", "tags": ["Ceramicas / Vidrio", "Impresion / Estampa"], "thumbnail": "thumbnails/Ce5RcJ9Nm3i.jpg"}, {"url": "https://www.instagram.com/tv/CeyMc6WjAJP/", "descripcion": "Blow moulding a tool case 🛠🧰\n🌺🌺Follow @industrial.highlights to see more.. \n.\n 🎥 blowmoulding (TikTok) \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts #mechanics #mechanic #physics #gadgets #mold", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["Moldeo por inyección", "Soplado", "CNC / Mecanizado"], "thumbnail": "thumbnails/CeyMc6WjAJP.jpg"}, {"url": "https://www.instagram.com/tv/Ceh5utuDnYk/", "descripcion": "Copying lathe machine! Thoughts?🙌🏼\nVia: @culver_props 🌺🌺Follow @industrial.highlights to see more.. \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts \n#virals #viralvids #reelvideos #popularcreator #popularvideos #viralspot #videoviral #instagramreels #viralpost #popularvideo #popularnow #popularity #reelsvideo #viraledits #reelstrending #instareels", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"], "thumbnail": "thumbnails/Ceh5utuDnYk.jpg"}, {"url": "https://www.instagram.com/tv/CeAYoAGv1KJ/", "descripcion": "☀️Good Morning from the factory☀️\n\n#skateboardtruck baseplates and hangars freshly out of the mold\n\nAt #bubbleskatzz we are using the #gravitycasting method, which results in an excellent surface finish!\n\nYou can, clearly, see how clean the trucks are out of the mold and even the slightest details can be seen without any effort 🙌🏼 \n\nLooking to get the best quality  #skateboardtrucks manufactured⁉️\nYour search ends here, at Bubble Skatzz...\n\n✅BEST QUALITY, BEST PRICE - GUARANTEED✅\n\n#skate #skateboards #skateboardmaker #skateboardfactory #skateboardinginindia #skateboardingisfun #downhillskateboarding #downhilllongboarding #longboardfreeride #skateamerica #skateboardthailand #skateforlife #bubbleskatzzmfg #skatephotoaday #skateboardporn #skateboardphotography #skateboardlife #skatechile #skateargentino #skateaustralia #skatechileno #skatecanada #HMX #huizhouhuimeixin #reelsinstagram", "titulo": "", "owner_name": "BubbleSkatzz/Huizhou Huimeixin", "username": "bubbleskatzz", "tags": ["Metalurgia"], "thumbnail": "thumbnails/CeAYoAGv1KJ.jpg"}, {"url": "https://www.instagram.com/reel/CdWJd73JNcO/", "descripcion": "I always thought it was printed! \n\n📩 DM for Credit/Removal \n\n ( no copyright intended )\n\n🔗 All rights and credits reserved to the Respective owner(s)🙏🏻\n\n#sosatisfying #techy #innovations #newtech #satisfyingvideo #techblogger #cooltech #satisfying #technologytheses #innovation #techworld #civilengineering #technologies #mechanicalengineer #electricalengineering #cable #techlover #futuretech #technologynews #engineerlife #engineeringWow\n#teaching #tips #goodidea #hacks #LearnOnTikTok #animation #electrician #puzzle #foryou", "titulo": "", "owner_name": "ENGINEER'S UNIVERSE", "username": "ersuniverse", "tags": ["Plásticos / Polímeros", "Impresion / Estampa", "Laser"], "thumbnail": "thumbnails/CdWJd73JNcO.jpg"}, {"url": "https://www.instagram.com/reel/CcS6tRajnek/", "descripcion": "Lost Footage Part 2: Turning Minecraft Saint Helens into Full-Res Saint Helens. What benefits do you see with this hybrid workflow?\n\nMachines: @josefprusa i3 Mk3s + @bantamtools PCB mill.\n\n#mountsainthelens #mtsthelens #pdx #hybridmanufacturing #3dprint #3dp #minecraft #cncmachining #rtxon #earthart #3dmap", "titulo": "", "owner_name": "Dom Riccobene", "username": "dom.riccobene", "tags": ["CNC / Mecanizado", "Impresión 3D", "Artesanía / Craft"], "thumbnail": "thumbnails/CcS6tRajnek.jpg"}, {"url": "https://www.instagram.com/p/CcHi02_D-zo/", "descripcion": "🌺🌺Follow @industrial.highlights to see more.. \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\nSource: unknown\n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts \n#art #machining #mechanic #handmake #technology #inventions #design #handmade #makeup #construction #insight #automation #artgallery #tech #artcurator #techno #architecture", "titulo": "Desguace y compactado de chatarra", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["Chapa / Plegado", "Metalurgia", "Reciclaje"], "thumbnail": "thumbnails/CcHi02_D-zo.jpg"}, {"url": "https://www.instagram.com/reel/CbIZ45WDQWk/", "descripcion": "This is incredibly satisfying and efficient \n\nVia @yourtipsgram \n#metalforming #metal #manyfacturing #manufacturer #manufacturers #tools #machining #metalshaping #metalshaper #sheetmetal #sheetmetalfab #tooling #engineer #fabrication #metalfabrication #metalfab #steelwork", "titulo": "", "owner_name": "Protolabs", "username": "protolabsmfg", "tags": ["CNC / Mecanizado", "Chapa / Plegado", "Metalurgia", "Plásticos / Polímeros"], "thumbnail": "thumbnails/CbIZ45WDQWk.jpg"}, {"url": "https://www.instagram.com/p/Ca10Mzxj6sR/", "descripcion": "Making Huge Tub 😱\nCredit📷: 1442343417 on TT\n🌺🌺Follow @industrial.highlights to see more.. \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\nVia: @mechclassified\n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts\n#mechanics #mechanic #physics #gadgets #tub", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"], "thumbnail": "thumbnails/Ca10Mzxj6sR.jpg"}, {"url": "https://www.instagram.com/p/CVsI8FNMNTJ/", "descripcion": "Thought you might like these production shots of my new large sculpture “Beyond the Clouds”", "titulo": "Chapa batida para esculturas de gran tamaño.", "owner_name": "JOSEPH KLIBANSKY", "username": "josephklibansky", "tags": ["Chapa / Plegado", "Metalurgia"], "thumbnail": "thumbnails/chapabatida.jpg"}, {"url": "https://www.instagram.com/p/CYJoHDKDr7Z/", "descripcion": "This is how basketball is made. 🔥\n🌺🌺Follow @inspiring.engineering to see more.. \n. \n.\n💼 Business / promotion DM\n💼 Business / promotion DM\n💼 Business / promotion DM\n.\n🌺🌺Follow @engineering.concepts to see more..\n------------------------------------------------------------\n💡💡 DM for credit or removal request (no copyright infringement intended).💡💡 🔗 All rights and credits reserved to the respective owner(s).\nCredit to: Science Channel\nVia: @gigadgets \n-----------------------------------------------------------\n#equipment #engineeringconcepts #industry #industrial #highlights #machine #engineering #physics #concepts \n#life #application #mechanics #mechanicalengineering #mechanic #appliedengineering #usa #newyork #washington #florida #boston #massachusetts #canada #losangles #california #physics #basketball #factory #basketballneverstops", "titulo": "", "owner_name": "Engineering Concepts", "username": "engineering.concepts", "tags": ["CNC / Mecanizado"], "thumbnail": "thumbnails/CYJoHDKDr7Z.jpg"}, {"url": "https://www.instagram.com/reel/CWxtLTjo3jZ/", "owner_name": "ENGINEER'S UNIVERSE", "username": "ersuniverse", "tags": ["CNC / Mecanizado", "Juguetes", "Madera / fibras naturales"], "thumbnail": "thumbnails/CWxtLTjo3jZ.jpg"}];
+
+const BASE_TAGS = [
+  "Termoformado","Moldeo por inyección","Soplado","CNC / Mecanizado",
+  "Corte láser","Chapa / Plegado","Impresión 3D","Composites / Fibra",
+  "Estampado / Forja","Metalurgia","Plásticos / Polímeros","Artesanía / Craft",
+  "Fabricación AR","Serigrafía","Joyería","Alimentaria"
+];
+
+const TAG_COLORS = {
+  "Termoformado":           ["#0c4a3a","#10b981"],
+  "Moldeo por inyección":   ["#3b1d6e","#a78bfa"],
+  "Soplado":                ["#0c3a55","#38bdf8"],
+  "CNC / Mecanizado":       ["#1a2a0a","#84cc16"],
+  "Corte láser":            ["#3a1a00","#fb923c"],
+  "Chapa / Plegado":        ["#2a1a00","#fbbf24"],
+  "Impresión 3D":           ["#1e0a3a","#c084fc"],
+  "Composites / Fibra":     ["#0a2a1a","#34d399"],
+  "Estampado / Forja":      ["#1a0a0a","#f87171"],
+  "Metalurgia":             ["#1a1a1a","#94a3b8"],
+  "Plásticos / Polímeros":  ["#0a1a3a","#60a5fa"],
+  "Artesanía / Craft":      ["#2a1a0a","#f59e0b"],
+  "Fabricación AR":         ["#1a2a0a","#4ade80"],
+  "Serigrafía":             ["#2a0a2a","#e879f9"],
+  "Joyería":                ["#2a1a00","#fcd34d"],
+  "Alimentaria":            ["#1a0a0a","#fb7185"],
+  "Sin clasificar":         ["#1a1a2a","#6b7280"],
+};
+
+// paleta para categorías custom (cycling)
+const CUSTOM_PALETTE = [
+  ["#1a0a2a","#d946ef"],["#0a2a2a","#06b6d4"],["#2a0a0a","#f43f5e"],
+  ["#0a1a0a","#22d3ee"],["#2a1a2a","#a855f7"],["#1a2a0a","#86efac"],
+];
+let paletteIdx = 0;
+
+function tagStyle(tag) {
+  const [bg, fg] = TAG_COLORS[tag] || ["#1a1a2a","#888"];
+  return `background:${bg};color:${fg};border-color:${fg}40`;
+}
+function tagBg(tag)  { return (TAG_COLORS[tag]||["#1a1a2a"])[0]; }
+function tagFg(tag)  { return (TAG_COLORS[tag]||["","#888"])[1]; }
+
+// ── Persistent state ───────────────────────────────────────────────────────
+let customTags   = {};
+let customCats   = [];
+let customTitles = {};  // idx -> string título manual
+try { customTags   = JSON.parse(localStorage.getItem(LS_KEY)||'{}'); } catch(e){}
+try { customCats   = JSON.parse(localStorage.getItem(LS_CATS_KEY)||'[]'); } catch(e){}
+try { customTitles = JSON.parse(localStorage.getItem(LS_TITLES_KEY)||'{}'); } catch(e){}
+
+customCats.forEach(c => {
+  if (!TAG_COLORS[c]) {
+    TAG_COLORS[c] = CUSTOM_PALETTE[paletteIdx % CUSTOM_PALETTE.length];
+    paletteIdx++;
+  }
+});
+
+function saveAll() {
+  localStorage.setItem(LS_KEY,        JSON.stringify(customTags));
+  localStorage.setItem(LS_CATS_KEY,   JSON.stringify(customCats));
+  localStorage.setItem(LS_TITLES_KEY, JSON.stringify(customTitles));
+}
+
+function allAvailableTags() { return [...BASE_TAGS, ...customCats]; }
+function getPostTags(i) { return customTags[i] !== undefined ? customTags[i] : POSTS[i].tags; }
+
+// ── State ──────────────────────────────────────────────────────────────────
+let activeTag = 'all';
+let editMode  = false;
+
+// ── Tag bar ────────────────────────────────────────────────────────────────
+const tagBar = document.getElementById('tagBar');
+let tagPills = {};
+
+function buildTagBar() {
+  tagBar.innerHTML = ''; tagPills = {};
+  const counts = {};
+  POSTS.forEach((_,i) => getPostTags(i).forEach(t => { counts[t]=(counts[t]||0)+1; }));
+  const usedTags = [...new Set(POSTS.flatMap((_,i) => getPostTags(i)))].sort();
+
+  function makePill(label, isAll=false) {
+    const pill = document.createElement('button');
+    pill.className = 'tag-pill' + (isAll?' all-pill':'');
+    if ((isAll && activeTag==='all')||(!isAll && activeTag===label)) pill.classList.add('active');
+    const cnt = isAll ? POSTS.length : (counts[label]||0);
+    pill.innerHTML = `${label} <span style="opacity:.5;font-size:10px">(${cnt})</span>`;
+    pill.addEventListener('click', () => {
+      activeTag = isAll ? 'all' : label;
+      document.querySelectorAll('.tag-pill').forEach(p=>p.classList.remove('active'));
+      pill.classList.add('active');
+      applyFilters();
+    });
+    if (!isAll) tagPills[label] = pill;
+    return pill;
+  }
+  tagBar.appendChild(makePill('Todos', true));
+  usedTags.forEach(t => tagBar.appendChild(makePill(t)));
+}
+
+// ── Render cards ───────────────────────────────────────────────────────────
+const grid = document.getElementById('grid');
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderTagsRow(cardEl, idx) {
+  const tags    = getPostTags(idx);
+  const edited  = customTags[idx] !== undefined;
+  const row     = cardEl.querySelector('.card-tags-row');
+  row.innerHTML =
+    tags.map(t =>
+      `<span class="card-tag" style="${tagStyle(t)}"
+        onclick="filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
+    ).join('') +
+    `<button class="btn-edit-card" onclick="openEditor(${idx})">` +
+      (edited ? '✏️·' : '✏️') +
+    `</button>`;
+  cardEl.classList.toggle('edited', edited);
+  cardEl.dataset.tags = JSON.stringify(tags);
+}
+
+function buildEditorGrid(idx) {
+  const current = getPostTags(idx);
+  const edGrid  = document.getElementById('editor-grid-' + idx);
+  edGrid.innerHTML = '';
+  allAvailableTags().forEach(t => {
+    const on = current.includes(t);
+    const btn = document.createElement('button');
+    btn.className = 'tag-toggle' + (on?' on':'');
+    btn.textContent = t;
+    btn.style.cssText = on ? `background:${tagBg(t)};color:${tagFg(t)};border-color:${tagFg(t)};` : '';
+    btn.addEventListener('click', () => {
+      btn.classList.toggle('on');
+      const now = btn.classList.contains('on');
+      btn.style.cssText = now ? `background:${tagBg(t)};color:${tagFg(t)};border-color:${tagFg(t)};` : '';
+    });
+    edGrid.appendChild(btn);
+  });
+}
+
+POSTS.forEach((p, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'card-' + i;
+  card.dataset.index = i;
+  card.dataset.text  = ((p.descripcion||'') + ' ' + p.username + ' ' + (p.owner_name||'')).toLowerCase();
+
+  const desc      = (p.descripcion||'').trim();
+  const igPost    = p.url;
+  const igProfile = 'https://instagram.com/' + p.username;
+
+  // renderContent se llama también al guardar para actualizar la card sin recronstruirla
+  function renderContent(cardEl) {
+    const manualTitle = customTitles[i] || '';
+    const titleEl  = cardEl.querySelector('.card-title');
+    const descEl   = cardEl.querySelector('.card-desc');
+    if (manualTitle) {
+      titleEl.textContent = manualTitle;
+      titleEl.style.display = 'block';
+      if (desc) {
+        descEl.textContent = desc;
+        descEl.className = 'card-desc';
+        descEl.style.display = '-webkit-box';
+      } else {
+        descEl.style.display = 'none';
+      }
+    } else {
+      titleEl.style.display = 'none';
+      if (desc) {
+        descEl.textContent = desc;
+        descEl.className = 'card-desc auto-only';
+        descEl.style.display = '-webkit-box';
+      } else {
+        descEl.textContent = 'Sin descripción';
+        descEl.className = 'card-desc empty';
+        descEl.style.display = 'block';
+      }
+    }
+  }
+
+  card.innerHTML =
+    (p.thumbnail ? `<img class="card-thumb" src="${escHtml(p.thumbnail)}" loading="lazy" alt="">` : '') +
+    `<p class="card-title"></p>` +
+    `<p class="card-desc"></p>` +
+    // fuente — secundaria
+    `<div class="card-source">` +
+      `<svg class="ig-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>` +
+      `<a href="${igProfile}" target="_blank">@${escHtml(p.username)}</a>` +
+      (p.owner_name ? `<span>· ${escHtml(p.owner_name)}</span>` : '') +
+    `</div>` +
+    // tags
+    `<div class="card-tags-row"></div>` +
+    // editor panel
+    `<div class="tag-editor" id="editor-${i}">` +
+      `<div class="editor-title-wrap">` +
+        `<div class="tag-editor-label">Título / descripción breve</div>` +
+        `<textarea class="editor-title-input" id="title-input-${i}" rows="2"` +
+          ` placeholder="Ej: Doblado de acrílico con calor..."></textarea>` +
+      `</div>` +
+      `<div class="tag-editor-label">Tags de proceso</div>` +
+      `<div class="tag-editor-grid" id="editor-grid-${i}"></div>` +
+      `<div class="new-tag-row">` +
+        `<input class="new-tag-input" id="new-tag-input-${i}" placeholder="Nueva categoría..." maxlength="40">` +
+        `<button class="btn-add-tag" onclick="addCustomTag(${i})">+ Agregar</button>` +
+      `</div>` +
+      `<div class="tag-editor-actions">` +
+        `<button class="btn-save-tags" onclick="saveEditor(${i})">✓ Guardar</button>` +
+        `<button class="btn-cancel-tags" onclick="closeEditor(${i})">Cancelar</button>` +
+      `</div>` +
+    `</div>` +
+    // link principal
+    `<a href="${escHtml(igPost)}" target="_blank" class="btn-post">▶ Ver publicación en Instagram</a>`;
+
+  grid.appendChild(card);
+  renderContent(card);
+  renderTagsRow(card, i);
+
+  // closure: expose renderContent so saveEditor can call it
+  card._renderContent = renderContent;
+});
+
+// ── Edit mode ──────────────────────────────────────────────────────────────
+function toggleEditMode() {
+  editMode = !editMode;
+  grid.classList.toggle('edit-mode-on', editMode);
+  const btn = document.getElementById('btnEditMode');
+  btn.classList.toggle('active', editMode);
+  btn.textContent = editMode ? '✕ Cerrar edición' : '✏️ Editar tags';
+}
+
+// ── Editor ─────────────────────────────────────────────────────────────────
+let openEditorIdx = null;
+
+function openEditor(idx) {
+  if (openEditorIdx !== null && openEditorIdx !== idx) closeEditor(openEditorIdx);
+  openEditorIdx = idx;
+  buildEditorGrid(idx);
+  document.getElementById('editor-' + idx).classList.add('open');
+  document.getElementById('new-tag-input-' + idx).value = '';
+  // pre-cargar título existente
+  const titleInput = document.getElementById('title-input-' + idx);
+  titleInput.value = customTitles[idx] || '';
+  titleInput.focus();
+}
+
+function closeEditor(idx) {
+  document.getElementById('editor-' + idx).classList.remove('open');
+  if (openEditorIdx === idx) openEditorIdx = null;
+}
+
+function addCustomTag(idx) {
+  const input = document.getElementById('new-tag-input-' + idx);
+  const name  = input.value.trim();
+  if (!name) return;
+  if (!TAG_COLORS[name]) {
+    TAG_COLORS[name] = CUSTOM_PALETTE[paletteIdx % CUSTOM_PALETTE.length];
+    paletteIdx++;
+  }
+  if (!customCats.includes(name)) { customCats.push(name); saveAll(); }
+  input.value = '';
+  buildEditorGrid(idx);  // rebuild with new tag already toggleable
+  // auto-select the new tag
+  const btns = document.querySelectorAll(`#editor-grid-${idx} .tag-toggle`);
+  btns.forEach(b => {
+    if (b.textContent === name) {
+      b.classList.add('on');
+      b.style.cssText = `background:${tagBg(name)};color:${tagFg(name)};border-color:${tagFg(name)};`;
+    }
+  });
+  showToast(`Categoría "${name}" creada`);
+}
+
+function saveEditor(idx) {
+  // guardar título manual (no pisa nada automático futuro)
+  const titleVal = document.getElementById('title-input-' + idx).value.trim();
+  if (titleVal) { customTitles[idx] = titleVal; }
+  else { delete customTitles[idx]; }
+
+  // guardar tags
+  const selected = [...document.querySelectorAll(`#editor-grid-${idx} .tag-toggle.on`)]
+    .map(b => b.textContent.trim());
+  customTags[idx] = selected.length ? selected : ['Sin clasificar'];
+
+  saveAll();
+  closeEditor(idx);
+
+  const cardEl = document.getElementById('card-' + idx);
+  cardEl._renderContent(cardEl);   // actualiza título + desc sin recargar
+  renderTagsRow(cardEl, idx);
+  buildTagBar();
+  applyFilters();
+  showToast('Guardado ✓');
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────
+function filterByTag(tag) {
+  activeTag = tag;
+  document.querySelectorAll('.tag-pill').forEach(p=>p.classList.remove('active'));
+  (tagPills[tag] || document.querySelector('.all-pill')).classList.add('active');
+  applyFilters();
+  document.querySelector('.tag-pill.active')
+    ?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  let visible = 0;
+  document.querySelectorAll('.card').forEach(card => {
+    const idx  = +card.dataset.index;
+    const tags = getPostTags(idx);
+    const text = card.dataset.text;
+    const show = (activeTag==='all' || tags.includes(activeTag)) && (!q || text.includes(q));
+    card.classList.toggle('hidden', !show);
+    if (show) visible++;
+  });
+  const total = POSTS.length;
+  document.getElementById('resultsInfo').textContent =
+    visible === total ? `${total} posts` : `${visible} de ${total} posts`;
+  document.getElementById('headerCount').textContent = `${total} posts`;
+  let noRes = document.querySelector('.no-results');
+  if (!visible) {
+    if (!noRes) { noRes=document.createElement('div'); noRes.className='no-results'; grid.appendChild(noRes); }
+    noRes.textContent = 'Sin resultados';
+  } else if (noRes) noRes.remove();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ── Exportar clasificación a archivo (para deploy / persistencia) ────────────
+function exportData() {
+  const data = {
+    profile:      'Tecno',
+    customTags:   customTags,
+    customCats:   customCats,
+    customTitles: customTitles,
+    exported:     new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tecno_classification.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+  showToast('Clasificación exportada ✓ — guardala en la carpeta Tecno');
+}
+
+buildTagBar();
+applyFilters();
+</script>
+</body>
+</html>
