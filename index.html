@@ -288,6 +288,10 @@ try { customTags   = JSON.parse(localStorage.getItem(LS_KEY)||'{}'); } catch(e){
 try { customCats   = JSON.parse(localStorage.getItem(LS_CATS_KEY)||'[]'); } catch(e){}
 try { customTitles = JSON.parse(localStorage.getItem(LS_TITLES_KEY)||'{}'); } catch(e){}
 
+// Categorías sembradas — disponibles en cualquier browser sin depender de localStorage.
+const SEED_CATS = ["ELIMINAR", "Espuma de poliuretano", "Ceramicas / Vidrio", "PVC", "Juguetes", "Ensamblado", "Impresion / Estampa", "Forja", "Laser", "Madera / fibras naturales", "multilaminado", "Mobiliario", "Reciclaje"];
+SEED_CATS.forEach(c => { if (!customCats.includes(c)) customCats.push(c); });
+
 customCats.forEach(c => {
   if (!TAG_COLORS[c]) {
     TAG_COLORS[c] = CUSTOM_PALETTE[paletteIdx % CUSTOM_PALETTE.length];
